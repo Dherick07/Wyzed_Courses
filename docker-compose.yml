@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  video-pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Mount the project directory so the container can read inputs and write outputs.
+      # PROJECT_DIR defaults to the current directory if not set.
+      - ${PROJECT_DIR:-.}:/workspace
+    environment:
+      - KOKORO_HOST=host.docker.internal
+      - KOKORO_PORT=8880
+      - INPUT_DIR=/workspace
+    extra_hosts:
+      # Allows the container to reach the host machine's localhost.
+      # Required on Linux; harmless on Docker Desktop for Windows/Mac.
+      - "host.docker.internal:host-gateway"
