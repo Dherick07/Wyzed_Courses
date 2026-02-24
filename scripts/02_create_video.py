@@ -6,6 +6,8 @@ Converts a PowerPoint file to slide images, pairs each slide image with its
 matching WAV audio, and exports a single MP4 video. Slide transitions happen
 exactly when the audio for each slide ends.
 
+Uses direct ffmpeg subprocess calls for fast encoding with -tune stillimage.
+
 Usage:
     python 02_create_video.py --input-dir /workspace
     python 02_create_video.py --input-dir /workspace --output-dir /workspace/Output
@@ -20,8 +22,6 @@ import wave
 from pathlib import Path
 
 from pdf2image import convert_from_path
-from moviepy.editor import AudioFileClip, ImageClip, concatenate_videoclips
-from PIL import Image
 
 
 def find_file(directory: Path, extension: str) -> Path:
@@ -37,7 +37,7 @@ def find_file(directory: Path, extension: str) -> Path:
 
 def pptx_to_images(pptx_path: Path, work_dir: Path) -> list[Path]:
     """
-    Convert PPTX to per-slide PNG images via LibreOffice (PPTX→PDF) + pdf2image (PDF→PNGs).
+    Convert PPTX to per-slide PNG images via LibreOffice (PPTX->PDF) + pdf2image (PDF->PNGs).
     Returns list of PNG paths ordered by slide number.
     """
     print("Converting PPTX to PDF via LibreOffice...")
@@ -82,33 +82,58 @@ def get_wav_duration(wav_path: Path) -> float:
         return frames / float(rate)
 
 
-def build_video_clips(slide_images: list[Path], audios_dir: Path) -> list:
+def encode_slide_segment(
+    img_path: Path, audio_path: Path, output_path: Path, fps: int = 24
+) -> Path:
     """
-    For each slide image, pair it with the matching WAV audio and build a
-    moviepy clip whose duration equals the audio length.
+    Encode a single slide image + WAV audio into an MP4 segment using ffmpeg.
+    The segment duration matches the audio length via -shortest.
     """
-    clips = []
-    total = len(slide_images)
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1",
+        "-framerate", "1",
+        "-i", str(img_path),
+        "-i", str(audio_path),
+        "-c:v", "libx264",
+        "-tune", "stillimage",
+        "-crf", "23",
+        "-preset", "fast",
+        "-pix_fmt", "yuv420p",
+        "-r", str(fps),
+        "-c:a", "aac",
+        "-shortest",
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"ERROR: ffmpeg failed for {img_path.name}:\n{result.stderr}")
+        sys.exit(1)
+    return output_path
 
-    for i, img_path in enumerate(slide_images, start=1):
-        audio_path = audios_dir / f"slide_{i:02d}.wav"
 
-        if not audio_path.exists():
-            print(f"  WARNING: Audio not found for Slide {i} ({audio_path.name}). Skipping slide.")
-            continue
+def concatenate_segments(segment_paths: list[Path], output_path: Path) -> None:
+    """
+    Concatenate pre-encoded MP4 segments into a single video using the
+    ffmpeg concat demuxer with stream copy (no re-encoding).
+    """
+    concat_list = segment_paths[0].parent / "concat_list.txt"
+    with open(concat_list, "w") as f:
+        for seg in segment_paths:
+            f.write(f"file '{seg}'\n")
 
-        duration = get_wav_duration(audio_path)
-        print(f"  Slide {i:02d}/{total}: {img_path.name} + {audio_path.name} ({duration:.1f}s)")
-
-        audio_clip = AudioFileClip(str(audio_path))
-        image_clip = (
-            ImageClip(str(img_path))
-            .set_duration(duration)
-            .set_audio(audio_clip)
-        )
-        clips.append(image_clip)
-
-    return clips
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", str(concat_list),
+        "-c", "copy",
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"ERROR: ffmpeg concat failed:\n{result.stderr}")
+        sys.exit(1)
 
 
 def main():
@@ -154,28 +179,35 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         work_dir = Path(tmp)
 
-        # Step 1: PPTX → PNG images
+        # Step 1: PPTX -> PNG images
         slide_images = pptx_to_images(pptx_file, work_dir)
 
-        # Step 2: Build per-slide video clips
-        print("\nBuilding video clips...")
-        clips = build_video_clips(slide_images, audios_dir)
+        # Step 2: Encode per-slide segments
+        print("\nEncoding slide segments...")
+        total = len(slide_images)
+        segment_paths = []
 
-        if not clips:
-            print("ERROR: No video clips were created. Check that audio files exist in Audios/.")
+        for i, img_path in enumerate(slide_images, start=1):
+            audio_path = audios_dir / f"slide_{i:02d}.wav"
+
+            if not audio_path.exists():
+                print(f"  WARNING: Audio not found for Slide {i} ({audio_path.name}). Skipping slide.")
+                continue
+
+            duration = get_wav_duration(audio_path)
+            print(f"  Slide {i:02d}/{total}: {img_path.name} + {audio_path.name} ({duration:.1f}s)")
+
+            segment_path = work_dir / f"segment_{i:02d}.mp4"
+            encode_slide_segment(img_path, audio_path, segment_path, fps=args.fps)
+            segment_paths.append(segment_path)
+
+        if not segment_paths:
+            print("ERROR: No segments were created. Check that audio files exist in Audios/.")
             sys.exit(1)
 
-        # Step 3: Concatenate and export
-        print(f"\nConcatenating {len(clips)} clip(s) and exporting to MP4...")
-        final_video = concatenate_videoclips(clips, method="compose")
-
-        final_video.write_videofile(
-            str(output_path),
-            fps=args.fps,
-            codec="libx264",
-            audio_codec="aac",
-            logger="bar",
-        )
+        # Step 3: Concatenate segments (stream copy — no re-encoding)
+        print(f"\nConcatenating {len(segment_paths)} segment(s) into final video...")
+        concatenate_segments(segment_paths, output_path)
 
         print(f"\nDone. Video saved to: {output_path}")
 

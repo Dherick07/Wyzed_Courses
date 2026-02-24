@@ -1,5 +1,4 @@
 requests
 flask
-moviepy==1.0.3
 Pillow
 pdf2image

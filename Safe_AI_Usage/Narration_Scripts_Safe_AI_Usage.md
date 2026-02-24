@@ -15,7 +15,7 @@
 
 ---
 
-## Slide 1 — Title Slide: Safe AI Usage
+## Slide 1 — Safe AI Usage
 
 Welcome to this session on Safe Artificial Intelligence Usage — presented by BIT Team for Dexterous Group employees.
 
@@ -200,20 +200,3 @@ Thank you for your attention. Safe and responsible AI use is not just good pract
 These are the sources for the information included in this presentation — feel free to verify or fact-check any of them.
 
 ---
-
-*End of narration scripts.*
-
-*Document prepared by Dexterous Group — Confidential — 2026*
-
----
-
-## Fact-Check Summary — Changes Made to This Version
-
-The following corrections were applied based on editorial review and source verification:
-
-| Slide | Original Claim                                                          | Corrected Claim                                                          | Verified Source                                        |
-| ----- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------ |
-| 1, 2  | "79% of professionals use AI daily"                                     | "19% of employees use AI daily at work — and rising"                    | Gallup Workforce Survey, Feb 2026                      |
-| 2     | "10% of firms have a formal AI policy"                                  | "57% of firms still have no formal AI policy"                            | Industry analysis (ISACA / Gartner), 2025              |
-| 3     | "67% of security teams cite AI as top data leakage risk" (unverifiable) | "AI is now the #1 data exfiltration channel in the enterprise"           | LayerX Enterprise AI & SaaS Data Security Report, 2025 |
-| 5     | "59% of employees make mistakes due to AI errors (IBM, 2024)"           | "57% of employees admit to mistakes due to AI errors (KPMG, April 2025)" | KPMG Trust in AI: Global Insights 2025                 |

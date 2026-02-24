@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 # System dependencies:
 #   libreoffice  — converts PPTX to PDF (headless)
-#   ffmpeg       — required by moviepy for video encoding
+#   ffmpeg       — video encoding engine (called directly via subprocess)
 #   poppler-utils — required by pdf2image to convert PDF pages to PNG
 RUN apt-get update && apt-get install -y \
     libreoffice \
