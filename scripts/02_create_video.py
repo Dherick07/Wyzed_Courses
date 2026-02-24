@@ -3,18 +3,18 @@
 02_create_video.py
 
 Converts a PowerPoint file to slide images, pairs each slide image with its
-matching WAV audio, and exports a single MP4 video. Slide transitions happen
-exactly when the audio for each slide ends.
+matching WAV audio, and exports a single MP4 video. Each slide is shown for
+a configurable pre-delay (default 1.5 s) before its narration begins.
 
 Uses direct ffmpeg subprocess calls for fast encoding with -tune stillimage.
 
 Usage:
     python 02_create_video.py --input-dir /workspace
-    python 02_create_video.py --input-dir /workspace --output-dir /workspace/Output
+    python 02_create_video.py --pptx-file p.pptx --audios-dir Audios/ --output-path out.mp4
+    python 02_create_video.py --input-dir /workspace --pre-delay 2.0
 """
 
 import argparse
-import os
 import subprocess
 import sys
 import tempfile
@@ -40,7 +40,7 @@ def pptx_to_images(pptx_path: Path, work_dir: Path) -> list[Path]:
     Convert PPTX to per-slide PNG images via LibreOffice (PPTX->PDF) + pdf2image (PDF->PNGs).
     Returns list of PNG paths ordered by slide number.
     """
-    print("Converting PPTX to PDF via LibreOffice...")
+    print("Converting presentation to PDF via LibreOffice...")
     result = subprocess.run(
         [
             "libreoffice",
@@ -83,12 +83,21 @@ def get_wav_duration(wav_path: Path) -> float:
 
 
 def encode_slide_segment(
-    img_path: Path, audio_path: Path, output_path: Path, fps: int = 24
+    img_path: Path,
+    audio_path: Path,
+    output_path: Path,
+    audio_duration: float,
+    fps: int = 24,
+    pre_delay: float = 0.0,
 ) -> Path:
     """
     Encode a single slide image + WAV audio into an MP4 segment using ffmpeg.
-    The segment duration matches the audio length via -shortest.
+
+    When pre_delay > 0 the slide is shown in silence for that many seconds
+    before the narration begins (via the adelay audio filter).
     """
+    total_duration = audio_duration + pre_delay
+
     cmd = [
         "ffmpeg", "-y",
         "-loop", "1",
@@ -101,10 +110,19 @@ def encode_slide_segment(
         "-preset", "fast",
         "-pix_fmt", "yuv420p",
         "-r", str(fps),
+    ]
+
+    # Add audio delay filter when pre_delay > 0
+    if pre_delay > 0:
+        delay_ms = int(pre_delay * 1000)
+        cmd += ["-af", f"adelay={delay_ms}:all=1"]
+
+    cmd += [
         "-c:a", "aac",
-        "-shortest",
+        "-t", f"{total_duration:.3f}",
         str(output_path),
     ]
+
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"ERROR: ffmpeg failed for {img_path.name}:\n{result.stderr}")
@@ -144,6 +162,7 @@ def main():
     parser.add_argument("--output-path", default=None, help="Full output path for the .mp4 file (overrides --output-dir)")
     parser.add_argument("--output-dir", default=None, help="Directory for the output MP4 (default: <input-dir>/Output)")
     parser.add_argument("--fps", type=int, default=24, help="Video frame rate (default: 24)")
+    parser.add_argument("--pre-delay", type=float, default=1.5, help="Seconds of silence before narration starts on each slide (default: 1.5)")
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir).resolve()
@@ -172,9 +191,12 @@ def main():
         print("  Run 01_generate_audios.py first.")
         sys.exit(1)
 
+    pre_delay = max(args.pre_delay, 0.0)
+
     print(f"Presentation: {pptx_file.name}")
     print(f"Audios dir:   {audios_dir}")
-    print(f"Output path:  {output_path}\n")
+    print(f"Output path:  {output_path}")
+    print(f"Pre-delay:    {pre_delay:.1f}s\n")
 
     with tempfile.TemporaryDirectory() as tmp:
         work_dir = Path(tmp)
@@ -195,10 +217,16 @@ def main():
                 continue
 
             duration = get_wav_duration(audio_path)
-            print(f"  Slide {i:02d}/{total}: {img_path.name} + {audio_path.name} ({duration:.1f}s)")
+            total_seg = duration + pre_delay
+            print(f"  Slide {i:02d}/{total}: {img_path.name} + {audio_path.name} ({duration:.1f}s audio, {total_seg:.1f}s total)")
 
             segment_path = work_dir / f"segment_{i:02d}.mp4"
-            encode_slide_segment(img_path, audio_path, segment_path, fps=args.fps)
+            encode_slide_segment(
+                img_path, audio_path, segment_path,
+                audio_duration=duration,
+                fps=args.fps,
+                pre_delay=pre_delay,
+            )
             segment_paths.append(segment_path)
 
         if not segment_paths:

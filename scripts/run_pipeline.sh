@@ -15,11 +15,15 @@
 # Kokoro TTS config (both modes):
 #   KOKORO_HOST  (default: host.docker.internal)
 #   KOKORO_PORT  (default: 8880)
+#
+# Video config (both modes):
+#   PRE_DELAY   (default: 1.5)  — seconds of silence before narration on each slide
 
 set -e
 
 KOKORO_HOST="${KOKORO_HOST:-host.docker.internal}"
 KOKORO_PORT="${KOKORO_PORT:-8880}"
+PRE_DELAY="${PRE_DELAY:-1.5}"
 
 if [ -n "$NARRATION_SCRIPT" ] && [ -n "$PPTX_FILE" ] && [ -n "$OUTPUT_PATH" ]; then
     # -----------------------------------------------------------------
@@ -35,6 +39,7 @@ if [ -n "$NARRATION_SCRIPT" ] && [ -n "$PPTX_FILE" ] && [ -n "$OUTPUT_PATH" ]; t
     echo " Output video     : $OUTPUT_PATH"
     echo " Audios dir       : $AUDIOS_DIR"
     echo " Kokoro           : $KOKORO_HOST:$KOKORO_PORT"
+    echo " Pre-delay        : ${PRE_DELAY}s"
     echo "============================================"
     echo ""
 
@@ -50,7 +55,8 @@ if [ -n "$NARRATION_SCRIPT" ] && [ -n "$PPTX_FILE" ] && [ -n "$OUTPUT_PATH" ]; t
     python /app/scripts/02_create_video.py \
       --pptx-file   "$PPTX_FILE" \
       --audios-dir  "$AUDIOS_DIR" \
-      --output-path "$OUTPUT_PATH"
+      --output-path "$OUTPUT_PATH" \
+      --pre-delay   "$PRE_DELAY"
 
 else
     # -----------------------------------------------------------------
@@ -63,6 +69,7 @@ else
     echo "============================================"
     echo " Input dir   : $INPUT_DIR"
     echo " Kokoro host : $KOKORO_HOST:$KOKORO_PORT"
+    echo " Pre-delay   : ${PRE_DELAY}s"
     echo "============================================"
     echo ""
 
@@ -75,8 +82,9 @@ else
     echo ""
     echo "=== Step 2: Creating video ==="
     python /app/scripts/02_create_video.py \
-      --input-dir  "$INPUT_DIR" \
-      --output-dir "$INPUT_DIR/Output"
+      --input-dir   "$INPUT_DIR" \
+      --output-dir  "$INPUT_DIR/Output" \
+      --pre-delay   "$PRE_DELAY"
 fi
 
 echo ""
