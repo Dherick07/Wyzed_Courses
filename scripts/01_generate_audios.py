@@ -112,16 +112,27 @@ def generate_audio(text: str, output_path: Path, host: str, port: int) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate per-slide WAV audio via Kokoro FastAPI")
-    parser.add_argument("--input-dir", default="/workspace", help="Directory containing the .md narration file")
+    parser.add_argument("--input-dir", default="/workspace", help="Directory containing the .md narration file (auto-detect mode)")
+    parser.add_argument("--md-file", default=None, help="Explicit path to the .md narration file (overrides --input-dir auto-detection)")
+    parser.add_argument("--audios-dir", default=None, help="Explicit path for saving WAV files (overrides <input-dir>/Audios/)")
     parser.add_argument("--kokoro-host", default="host.docker.internal", help="Kokoro FastAPI hostname")
     parser.add_argument("--kokoro-port", type=int, default=8880, help="Kokoro FastAPI port")
     args = parser.parse_args()
 
-    input_dir = Path(args.input_dir).resolve()
-    audios_dir = input_dir / "Audios"
-    audios_dir.mkdir(exist_ok=True)
+    if args.md_file:
+        md_file = Path(args.md_file).resolve()
+    else:
+        input_dir = Path(args.input_dir).resolve()
+        md_file = find_file(input_dir, ".md")
 
-    md_file = find_file(input_dir, ".md")
+    if args.audios_dir:
+        audios_dir = Path(args.audios_dir).resolve()
+    else:
+        input_dir = Path(args.input_dir).resolve()
+        audios_dir = input_dir / "Audios"
+
+    audios_dir.mkdir(parents=True, exist_ok=True)
+
     print(f"Narration file: {md_file.name}")
 
     slides = parse_narration_slides(md_file)

@@ -113,25 +113,43 @@ def build_video_clips(slide_images: list[Path], audios_dir: Path) -> list:
 
 def main():
     parser = argparse.ArgumentParser(description="Combine PPTX slides and WAV audio into an MP4 video")
-    parser.add_argument("--input-dir", default="/workspace", help="Directory containing the .pptx file and Audios/ folder")
+    parser.add_argument("--input-dir", default="/workspace", help="Directory containing the .pptx file and Audios/ folder (auto-detect mode)")
+    parser.add_argument("--pptx-file", default=None, help="Explicit path to the .pptx file (overrides --input-dir auto-detection)")
+    parser.add_argument("--audios-dir", default=None, help="Explicit path to the Audios/ directory (overrides <input-dir>/Audios/)")
+    parser.add_argument("--output-path", default=None, help="Full output path for the .mp4 file (overrides --output-dir)")
     parser.add_argument("--output-dir", default=None, help="Directory for the output MP4 (default: <input-dir>/Output)")
     parser.add_argument("--fps", type=int, default=24, help="Video frame rate (default: 24)")
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir).resolve()
-    audios_dir = input_dir / "Audios"
-    output_dir = Path(args.output_dir).resolve() if args.output_dir else input_dir / "Output"
-    output_dir.mkdir(exist_ok=True)
+
+    if args.pptx_file:
+        pptx_file = Path(args.pptx_file).resolve()
+    else:
+        pptx_file = find_file(input_dir, ".pptx")
+
+    if args.audios_dir:
+        audios_dir = Path(args.audios_dir).resolve()
+    else:
+        audios_dir = input_dir / "Audios"
+
+    if args.output_path:
+        output_path = Path(args.output_path).resolve()
+        output_dir = output_path.parent
+        output_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        output_dir = Path(args.output_dir).resolve() if args.output_dir else input_dir / "Output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "output_video.mp4"
 
     if not audios_dir.exists():
         print(f"ERROR: Audios/ directory not found at {audios_dir}")
         print("  Run 01_generate_audios.py first.")
         sys.exit(1)
 
-    pptx_file = find_file(input_dir, ".pptx")
     print(f"Presentation: {pptx_file.name}")
     print(f"Audios dir:   {audios_dir}")
-    print(f"Output dir:   {output_dir}\n")
+    print(f"Output path:  {output_path}\n")
 
     with tempfile.TemporaryDirectory() as tmp:
         work_dir = Path(tmp)
@@ -150,7 +168,6 @@ def main():
         # Step 3: Concatenate and export
         print(f"\nConcatenating {len(clips)} clip(s) and exporting to MP4...")
         final_video = concatenate_videoclips(clips, method="compose")
-        output_path = output_dir / "output_video.mp4"
 
         final_video.write_videofile(
             str(output_path),

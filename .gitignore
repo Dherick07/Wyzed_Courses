@@ -1,0 +1,7 @@
+# Ignore all files in the Audios/ folder
+Safe_AI_Usage/Audios/*
+
+# Ignore all files in the Output/ folder
+Safe_AI_Usage/Output/*
+
+output_video*

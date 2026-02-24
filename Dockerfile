@@ -21,4 +21,7 @@ RUN chmod +x /app/scripts/run_pipeline.sh
 # Working directory is the mounted project volume
 WORKDIR /workspace
 
-CMD ["bash", "/app/scripts/run_pipeline.sh"]
+EXPOSE 8080
+
+# Start the web UI — open http://localhost:8080 in your browser to run the pipeline.
+CMD ["python", "/app/scripts/web_ui.py"]

@@ -1,37 +1,85 @@
 #!/bin/bash
 # run_pipeline.sh
-# Runs both scripts in sequence inside the Docker container.
-# Environment variables (set via docker-compose.yml or -e flags):
+# Runs both pipeline scripts in sequence inside the Docker container.
+#
+# EXPLICIT MODE (used by the web UI):
+#   Set these environment variables before calling this script:
+#     NARRATION_SCRIPT  — full container path to the .md narration file
+#     PPTX_FILE         — full container path to the .pptx presentation
+#     OUTPUT_PATH       — full container path for the output .mp4
+#   The Audios/ folder is automatically placed next to the PPTX file.
+#
+# LEGACY MODE (backward compatibility — auto-detects files in INPUT_DIR):
+#   INPUT_DIR  (default: /workspace)
+#
+# Kokoro TTS config (both modes):
 #   KOKORO_HOST  (default: host.docker.internal)
 #   KOKORO_PORT  (default: 8880)
 
 set -e
 
-INPUT_DIR="${INPUT_DIR:-/workspace}"
 KOKORO_HOST="${KOKORO_HOST:-host.docker.internal}"
 KOKORO_PORT="${KOKORO_PORT:-8880}"
 
-echo "============================================"
-echo " Presentation Video Pipeline"
-echo "============================================"
-echo " Input dir   : $INPUT_DIR"
-echo " Kokoro host : $KOKORO_HOST:$KOKORO_PORT"
-echo "============================================"
-echo ""
+if [ -n "$NARRATION_SCRIPT" ] && [ -n "$PPTX_FILE" ] && [ -n "$OUTPUT_PATH" ]; then
+    # -----------------------------------------------------------------
+    # Explicit mode: all three paths were provided by the web UI
+    # -----------------------------------------------------------------
+    AUDIOS_DIR="$(dirname "$PPTX_FILE")/Audios"
 
-echo "=== Step 1: Generating audio files ==="
-python /app/scripts/01_generate_audios.py \
-  --input-dir "$INPUT_DIR" \
-  --kokoro-host "$KOKORO_HOST" \
-  --kokoro-port "$KOKORO_PORT"
+    echo "============================================"
+    echo " Presentation Video Pipeline"
+    echo "============================================"
+    echo " Narration script : $NARRATION_SCRIPT"
+    echo " Presentation     : $PPTX_FILE"
+    echo " Output video     : $OUTPUT_PATH"
+    echo " Audios dir       : $AUDIOS_DIR"
+    echo " Kokoro           : $KOKORO_HOST:$KOKORO_PORT"
+    echo "============================================"
+    echo ""
 
-echo ""
-echo "=== Step 2: Creating video ==="
-python /app/scripts/02_create_video.py \
-  --input-dir "$INPUT_DIR" \
-  --output-dir "$INPUT_DIR/Output"
+    echo "=== Step 1: Generating audio files ==="
+    python /app/scripts/01_generate_audios.py \
+      --md-file     "$NARRATION_SCRIPT" \
+      --audios-dir  "$AUDIOS_DIR" \
+      --kokoro-host "$KOKORO_HOST" \
+      --kokoro-port "$KOKORO_PORT"
+
+    echo ""
+    echo "=== Step 2: Creating video ==="
+    python /app/scripts/02_create_video.py \
+      --pptx-file   "$PPTX_FILE" \
+      --audios-dir  "$AUDIOS_DIR" \
+      --output-path "$OUTPUT_PATH"
+
+else
+    # -----------------------------------------------------------------
+    # Legacy mode: auto-detect files inside INPUT_DIR
+    # -----------------------------------------------------------------
+    INPUT_DIR="${INPUT_DIR:-/workspace}"
+
+    echo "============================================"
+    echo " Presentation Video Pipeline"
+    echo "============================================"
+    echo " Input dir   : $INPUT_DIR"
+    echo " Kokoro host : $KOKORO_HOST:$KOKORO_PORT"
+    echo "============================================"
+    echo ""
+
+    echo "=== Step 1: Generating audio files ==="
+    python /app/scripts/01_generate_audios.py \
+      --input-dir   "$INPUT_DIR" \
+      --kokoro-host "$KOKORO_HOST" \
+      --kokoro-port "$KOKORO_PORT"
+
+    echo ""
+    echo "=== Step 2: Creating video ==="
+    python /app/scripts/02_create_video.py \
+      --input-dir  "$INPUT_DIR" \
+      --output-dir "$INPUT_DIR/Output"
+fi
 
 echo ""
 echo "============================================"
-echo " Done! Video saved to: $INPUT_DIR/Output/output_video.mp4"
+echo " Pipeline complete!"
 echo "============================================"

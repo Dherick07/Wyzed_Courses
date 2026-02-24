@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      # Web UI — open http://localhost:8080 in your browser after starting the container.
+      - "8080:8080"
     volumes:
       # Mount the project directory so the container can read inputs and write outputs.
       # PROJECT_DIR defaults to the current directory if not set.
