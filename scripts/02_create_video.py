@@ -82,44 +82,67 @@ def get_wav_duration(wav_path: Path) -> float:
         return frames / float(rate)
 
 
+def prepend_silence(audio_path: Path, output_path: Path, silence_secs: float) -> Path:
+    """
+    Create a new WAV file with *silence_secs* of silence prepended to the
+    original audio.  Uses ffmpeg's anullsrc to generate silence and the
+    concat filter to join them — runs almost instantly.
+    """
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi",
+        "-i", f"anullsrc=channel_layout=mono:sample_rate=24000",
+        "-i", str(audio_path),
+        "-filter_complex",
+        f"[0]atrim=duration={silence_secs:.3f}[s];[s][1:a]concat=n=2:v=0:a=1[out]",
+        "-map", "[out]",
+        "-c:a", "pcm_s16le",
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"ERROR: ffmpeg silence prepend failed:\n{result.stderr}")
+        sys.exit(1)
+    return output_path
+
+
 def encode_slide_segment(
     img_path: Path,
     audio_path: Path,
     output_path: Path,
-    audio_duration: float,
     fps: int = 24,
     pre_delay: float = 0.0,
+    work_dir: Path | None = None,
 ) -> Path:
     """
     Encode a single slide image + WAV audio into an MP4 segment using ffmpeg.
 
-    When pre_delay > 0 the slide is shown in silence for that many seconds
-    before the narration begins (via the adelay audio filter).
+    When pre_delay > 0, silence is prepended to the audio file first, then
+    the segment is encoded with -shortest so ffmpeg terminates as soon as
+    the (now-longer) audio ends.  This keeps encoding fast by avoiding the
+    adelay audio filter during video encoding.
     """
-    total_duration = audio_duration + pre_delay
+    effective_audio = audio_path
+
+    if pre_delay > 0 and work_dir is not None:
+        delayed_audio = work_dir / f"delayed_{audio_path.name}"
+        prepend_silence(audio_path, delayed_audio, pre_delay)
+        effective_audio = delayed_audio
 
     cmd = [
         "ffmpeg", "-y",
         "-loop", "1",
         "-framerate", "1",
         "-i", str(img_path),
-        "-i", str(audio_path),
+        "-i", str(effective_audio),
         "-c:v", "libx264",
         "-tune", "stillimage",
         "-crf", "23",
         "-preset", "fast",
         "-pix_fmt", "yuv420p",
         "-r", str(fps),
-    ]
-
-    # Add audio delay filter when pre_delay > 0
-    if pre_delay > 0:
-        delay_ms = int(pre_delay * 1000)
-        cmd += ["-af", f"adelay={delay_ms}:all=1"]
-
-    cmd += [
         "-c:a", "aac",
-        "-t", f"{total_duration:.3f}",
+        "-shortest",
         str(output_path),
     ]
 
@@ -223,9 +246,9 @@ def main():
             segment_path = work_dir / f"segment_{i:02d}.mp4"
             encode_slide_segment(
                 img_path, audio_path, segment_path,
-                audio_duration=duration,
                 fps=args.fps,
                 pre_delay=pre_delay,
+                work_dir=work_dir,
             )
             segment_paths.append(segment_path)
 

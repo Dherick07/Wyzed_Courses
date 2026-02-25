@@ -23,7 +23,7 @@ Artificial intelligence tools are now a part of everyday professional life. Acco
 
 Over the next few minutes, we are going to walk through exactly what those risks are, how they apply to accountants, HR, Client Managers, and — most importantly — what you should and should not be doing when you use AI tools in your day-to-day work.
 
-This session is about protecting our clients, protecting our firm, and protecting your professional licence.
+This session is about protecting our clients, protecting our firm, and protecting your professional license.
 
 Let us get started.
 
