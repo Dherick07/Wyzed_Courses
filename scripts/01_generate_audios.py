@@ -3,19 +3,20 @@
 01_generate_audios.py
 
 Parses a narration Markdown file (## Slide N format) and generates one WAV
-audio file per slide using a local Kokoro FastAPI instance.
+audio file per slide using the embedded Kokoro ONNX TTS model.
 
 Usage:
     python 01_generate_audios.py --input-dir /workspace
-    python 01_generate_audios.py --input-dir /workspace --kokoro-host localhost --kokoro-port 8880
+    python 01_generate_audios.py --input-dir /workspace --speed 1.2
 """
 
 import argparse
-import os
 import re
 import sys
-import requests
 from pathlib import Path
+
+import soundfile as sf
+from kokoro_onnx import Kokoro
 
 
 def find_file(directory: Path, extension: str) -> Path:
@@ -84,39 +85,13 @@ def parse_narration_slides(md_path: Path) -> dict[int, str]:
     return slides
 
 
-def generate_audio(text: str, output_path: Path, host: str, port: int) -> None:
-    """Call Kokoro FastAPI and save WAV audio to output_path."""
-    url = f"http://{host}:{port}/v1/audio/speech"
-    payload = {
-        "model": "kokoro",
-        "voice": "af_bella",
-        "input": text,
-        "speed": 1.0,
-        "response_format": "wav",
-    }
-
-    try:
-        response = requests.post(url, json=payload, timeout=120)
-        response.raise_for_status()
-    except requests.exceptions.ConnectionError:
-        print(f"ERROR: Cannot connect to Kokoro at {url}")
-        print("  Make sure Kokoro FastAPI Docker container is running.")
-        sys.exit(1)
-    except requests.exceptions.HTTPError as e:
-        print(f"ERROR: Kokoro API returned an error: {e}")
-        print(f"  Response: {response.text[:500]}")
-        sys.exit(1)
-
-    output_path.write_bytes(response.content)
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Generate per-slide WAV audio via Kokoro FastAPI")
+    parser = argparse.ArgumentParser(description="Generate per-slide WAV audio via Kokoro ONNX TTS")
     parser.add_argument("--input-dir", default="/workspace", help="Directory containing the .md narration file (auto-detect mode)")
     parser.add_argument("--md-file", default=None, help="Explicit path to the .md narration file (overrides --input-dir auto-detection)")
     parser.add_argument("--audios-dir", default=None, help="Explicit path for saving WAV files (overrides <input-dir>/Audios/)")
-    parser.add_argument("--kokoro-host", default="host.docker.internal", help="Kokoro FastAPI hostname")
-    parser.add_argument("--kokoro-port", type=int, default=8880, help="Kokoro FastAPI port")
+    parser.add_argument("--model-dir", default="/app/models", help="Directory containing Kokoro ONNX model files")
+    parser.add_argument("--speed", type=float, default=1.0, help="TTS speech speed (default: 1.0)")
     args = parser.parse_args()
 
     if args.md_file:
@@ -133,6 +108,22 @@ def main():
 
     audios_dir.mkdir(parents=True, exist_ok=True)
 
+    # Load Kokoro ONNX model
+    model_dir = Path(args.model_dir)
+    model_path = model_dir / "kokoro-v1.0.int8.onnx"
+    voices_path = model_dir / "voices-v1.0.bin"
+
+    if not model_path.exists():
+        print(f"ERROR: Model file not found: {model_path}")
+        sys.exit(1)
+    if not voices_path.exists():
+        print(f"ERROR: Voices file not found: {voices_path}")
+        sys.exit(1)
+
+    print("Loading Kokoro TTS model...")
+    kokoro = Kokoro(str(model_path), str(voices_path))
+    print("Model loaded.\n")
+
     print(f"Narration file: {md_file.name}")
 
     slides = parse_narration_slides(md_file)
@@ -148,7 +139,11 @@ def main():
             print(f"  WARNING: Slide {slide_num} has no narration text. Skipping.")
             continue
 
-        generate_audio(text, output_path, args.kokoro_host, args.kokoro_port)
+        samples, sample_rate = kokoro.create(
+            text, voice="af_bella", speed=args.speed, lang="en-us"
+        )
+        sf.write(str(output_path), samples, sample_rate)
+
         size_kb = output_path.stat().st_size // 1024
         print(f"  Saved: {output_path.name} ({size_kb} KB)")
 

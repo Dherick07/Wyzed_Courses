@@ -12,17 +12,17 @@
 # LEGACY MODE (backward compatibility — auto-detects files in INPUT_DIR):
 #   INPUT_DIR  (default: /workspace)
 #
-# Kokoro TTS config (both modes):
-#   KOKORO_HOST  (default: host.docker.internal)
-#   KOKORO_PORT  (default: 8880)
+# TTS config (both modes):
+#   SPEED       (default: 1.0) — TTS speech speed
+#   MODEL_DIR   (default: /app/models) — directory containing Kokoro ONNX model files
 #
 # Video config (both modes):
 #   PRE_DELAY   (default: 1.5)  — seconds of silence before narration on each slide
 
 set -e
 
-KOKORO_HOST="${KOKORO_HOST:-host.docker.internal}"
-KOKORO_PORT="${KOKORO_PORT:-8880}"
+SPEED="${SPEED:-1.0}"
+MODEL_DIR="${MODEL_DIR:-/app/models}"
 PRE_DELAY="${PRE_DELAY:-1.5}"
 
 if [ -n "$NARRATION_SCRIPT" ] && [ -n "$PPTX_FILE" ] && [ -n "$OUTPUT_PATH" ]; then
@@ -38,7 +38,7 @@ if [ -n "$NARRATION_SCRIPT" ] && [ -n "$PPTX_FILE" ] && [ -n "$OUTPUT_PATH" ]; t
     echo " Presentation     : $PPTX_FILE"
     echo " Output video     : $OUTPUT_PATH"
     echo " Audios dir       : $AUDIOS_DIR"
-    echo " Kokoro           : $KOKORO_HOST:$KOKORO_PORT"
+    echo " TTS speed        : $SPEED"
     echo " Pre-delay        : ${PRE_DELAY}s"
     echo "============================================"
     echo ""
@@ -47,8 +47,8 @@ if [ -n "$NARRATION_SCRIPT" ] && [ -n "$PPTX_FILE" ] && [ -n "$OUTPUT_PATH" ]; t
     python /app/scripts/01_generate_audios.py \
       --md-file     "$NARRATION_SCRIPT" \
       --audios-dir  "$AUDIOS_DIR" \
-      --kokoro-host "$KOKORO_HOST" \
-      --kokoro-port "$KOKORO_PORT"
+      --model-dir   "$MODEL_DIR" \
+      --speed       "$SPEED"
 
     echo ""
     echo "=== Step 2: Creating video ==="
@@ -68,7 +68,7 @@ else
     echo " Presentation Video Pipeline"
     echo "============================================"
     echo " Input dir   : $INPUT_DIR"
-    echo " Kokoro host : $KOKORO_HOST:$KOKORO_PORT"
+    echo " TTS speed   : $SPEED"
     echo " Pre-delay   : ${PRE_DELAY}s"
     echo "============================================"
     echo ""
@@ -76,8 +76,8 @@ else
     echo "=== Step 1: Generating audio files ==="
     python /app/scripts/01_generate_audios.py \
       --input-dir   "$INPUT_DIR" \
-      --kokoro-host "$KOKORO_HOST" \
-      --kokoro-port "$KOKORO_PORT"
+      --model-dir   "$MODEL_DIR" \
+      --speed       "$SPEED"
 
     echo ""
     echo "=== Step 2: Creating video ==="

@@ -1,4 +1,5 @@
-requests
+kokoro-onnx
+soundfile
 flask
 Pillow
 pdf2image
