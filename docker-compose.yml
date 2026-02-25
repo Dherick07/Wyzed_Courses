@@ -14,3 +14,5 @@ services:
       - ${PROJECT_DIR:-.}:/workspace
     environment:
       - INPUT_DIR=/workspace
+      # ONNX_THREADS: total CPU threads for TTS inference (0 = auto-detect all cores)
+      - ONNX_THREADS=0

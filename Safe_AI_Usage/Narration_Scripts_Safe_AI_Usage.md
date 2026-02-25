@@ -1,3 +1,4 @@
+
 # Narration Scripts — Safe AI Usage
 
 ### Dexterous Group | Accounting Team Presentation
@@ -10,12 +11,12 @@
 >
 > - Read all numbers in full: e.g. "nineteen percent", "five-point-zero-eight million dollars"
 > - Expand abbreviations where noted in brackets
-> - Pause naturally at em-dashes ( — ) and ellipses ( ... )
-> - Each script is written for spoken delivery — do not read headings or formatting symbols aloud
+> - **Note on Pauses:** Headlines now end with `. ... ...` to force a 2-second pause before starting the body text.
+> - Each script is written for spoken delivery — do not read formatting symbols aloud.
 
 ---
 
-## Slide 1 — Safe AI Usage
+## Slide 1 — Safe AI Usage. ... ...
 
 Welcome to this session on Safe Artificial Intelligence Usage — presented by BIT Team for Dexterous Group employees.
 
@@ -29,7 +30,7 @@ Let us get started.
 
 ---
 
-## Slide 2 — AI in Accounting Today
+## Slide 2 — AI in Accounting Today. ... ...
 
 AI tools are now deeply embedded in the way accountants work. Whether it is drafting correspondence, researching legislation, checking calculations, or summarising documents — tools like ChatGPT, Microsoft Copilot, Google Gemini, and others have become part of the daily routine.
 
@@ -41,7 +42,7 @@ The tools your team uses every day — ChatGPT, Microsoft Copilot, Google Gemini
 
 ---
 
-## Slide 3 — Three Core Risks for Accountants
+## Slide 3 — Three Core Risks for Accountants. ... ...
 
 Using AI without the right safeguards exposes our firm to three serious categories of risk.
 
@@ -55,7 +56,7 @@ These are not theoretical risks. They are happening right now, to firms just lik
 
 ---
 
-## Slide 4 — Risk 1: Data Privacy and Leakage
+## Slide 4 — Risk 1: Data Privacy and Leakage. ... ...
 
 Let us look at the first risk in detail: data privacy and leakage.
 
@@ -69,7 +70,7 @@ The types of data most at risk in our work include client Tax File Numbers, fina
 
 ---
 
-## Slide 5 — Risk 2: AI Hallucinations and Financial Errors
+## Slide 5 — Risk 2: AI Hallucinations and Financial Errors. ... ...
 
 The second risk is one that surprises many people: AI hallucinations.
 
@@ -85,7 +86,7 @@ KPMG's Trust in AI: Global Insights report, published in April 2025 and covering
 
 ---
 
-## Slide 6 — Risk 3: Compliance and Regulatory Obligations
+## Slide 6 — Risk 3: Compliance and Regulatory Obligations. ... ...
 
 The third risk area is compliance — and this is where the consequences become most serious.
 
@@ -101,7 +102,7 @@ Your obligations as an accountant do not stop at the office door. They apply to 
 
 ---
 
-## Slide 7 — Consumer vs. Enterprise AI: Know the Difference
+## Slide 7 — Consumer vs. Enterprise AI: Know the Difference. ... ...
 
 Not all AI tools carry the same level of risk. The critical distinction is between consumer-grade tools and enterprise-grade tools — and the differences are significant.
 
@@ -113,7 +114,7 @@ The bottom line is this: when it comes to client work, only enterprise-grade too
 
 ---
 
-## Slide 8 — What You Should Never Input Into Consumer AI
+## Slide 8 — What You Should Never Input Into Consumer AI. ... ...
 
 This slide is straightforward — and it is one of the most important.
 
@@ -135,7 +136,7 @@ If any of this information is in your prompt — stop. Either remove and anonymi
 
 ---
 
-## Slide 9 — Safe vs. Unsafe: Practical Examples for Accountants
+## Slide 9 — Safe vs. Unsafe: Practical Examples for Accountants. ... ...
 
 Let us make this concrete with four real-world examples showing the difference between unsafe and safe AI use.
 
@@ -153,7 +154,7 @@ The golden rule: if you would not email it to a stranger, do not put it in a con
 
 ---
 
-## Slide 10 — Data Anonymisation: Using AI Without Exposing Client Data
+## Slide 10 — Data Anonymisation: Using AI Without Exposing Client Data. ... ...
 
 So what do you do when you genuinely need AI's help with a real client scenario? The answer is anonymisation. Strip the identifying information before you ask the question.
 
@@ -169,7 +170,7 @@ These three techniques allow you to get genuine value from AI while keeping clie
 
 ---
 
-## Slide 11 — Best Practices: Safe AI Use for Your Team
+## Slide 11 — Best Practices: Safe AI Use for Your Team. ... ...
 
 Let us summarise the key behaviours that define safe AI use in our firm.
 
@@ -179,7 +180,7 @@ Here is what you must not do. Never paste client financial statements, Tax File 
 
 ---
 
-## Slide 12 — Your Action Plan
+## Slide 12 — Your Action Plan. ... ...
 
 We have covered a lot of ground. Let us close with three clear, immediate actions every one of us should take.
 
@@ -195,8 +196,6 @@ Thank you for your attention. Safe and responsible AI use is not just good pract
 
 ---
 
-## Slide 13 — Sources and Citations
+## Slide 13 — Sources and Citations. ... ...
 
 These are the sources for the information included in this presentation — feel free to verify or fact-check any of them.
-
----

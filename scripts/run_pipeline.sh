@@ -13,8 +13,9 @@
 #   INPUT_DIR  (default: /workspace)
 #
 # TTS config (both modes):
-#   SPEED       (default: 1.0) — TTS speech speed
-#   MODEL_DIR   (default: /app/models) — directory containing Kokoro ONNX model files
+#   SPEED        (default: 1.0) — TTS speech speed
+#   MODEL_DIR    (default: /app/models) — directory containing Kokoro ONNX model files
+#   ONNX_THREADS (default: 0)   — CPU threads for ONNX Runtime (0 = auto-detect)
 #
 # Video config (both modes):
 #   PRE_DELAY   (default: 1.5)  — seconds of silence before narration on each slide
@@ -39,6 +40,7 @@ if [ -n "$NARRATION_SCRIPT" ] && [ -n "$PPTX_FILE" ] && [ -n "$OUTPUT_PATH" ]; t
     echo " Output video     : $OUTPUT_PATH"
     echo " Audios dir       : $AUDIOS_DIR"
     echo " TTS speed        : $SPEED"
+    echo " ONNX threads     : ${ONNX_THREADS:-0 (auto)}"
     echo " Pre-delay        : ${PRE_DELAY}s"
     echo "============================================"
     echo ""
@@ -69,6 +71,7 @@ else
     echo "============================================"
     echo " Input dir   : $INPUT_DIR"
     echo " TTS speed   : $SPEED"
+    echo " ONNX threads: ${ONNX_THREADS:-0 (auto)}"
     echo " Pre-delay   : ${PRE_DELAY}s"
     echo "============================================"
     echo ""

@@ -7,3 +7,6 @@ Safe_AI_Usage/Output/*
 output_video*
 
 _sessions/*
+
+# Kokoro TTS model files (large binaries — downloaded once, not tracked in git)
+models/
