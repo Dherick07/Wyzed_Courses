@@ -503,9 +503,9 @@ def _find_by_extensions(directory: Path, extensions: set[str]) -> Path | None:
 
 
 def _cleanup_after_success(session_dir: Path):
-    """Delete uploaded source files and Audios/ dir, keep only output_video.mp4."""
+    """Delete uploaded source files and Audios/ dir, keep output_video.mp4 and merged_audio.wav."""
     for f in session_dir.iterdir():
-        if f.name == "output_video.mp4":
+        if f.name in {"output_video.mp4", "merged_audio.wav"}:
             continue
         if f.is_dir():
             shutil.rmtree(f, ignore_errors=True)
@@ -638,7 +638,7 @@ def run():
         proc.wait()
 
         if proc.returncode == 0:
-            # Clean up uploaded files + audios, keep only output_video.mp4
+            # Clean up uploaded files + audios, keep output_video.mp4 and merged_audio.wav
             _cleanup_after_success(session_dir)
             yield f"event: done\ndata: {session_id}\n\n"
         else:

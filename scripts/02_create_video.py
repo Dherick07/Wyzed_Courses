@@ -24,6 +24,12 @@ from pathlib import Path
 from pdf2image import convert_from_path
 
 
+def get_wav_properties(wav_path: Path) -> tuple[int, int]:
+    """Return (sample_rate, channels) for a WAV file."""
+    with wave.open(str(wav_path), 'rb') as wf:
+        return wf.getframerate(), wf.getnchannels()
+
+
 def find_file(directory: Path, extension: str) -> Path:
     """Auto-detect the first file with the given extension in directory."""
     matches = list(directory.glob(f"*{extension}"))
@@ -33,6 +39,44 @@ def find_file(directory: Path, extension: str) -> Path:
     if len(matches) > 1:
         print(f"WARNING: Multiple {extension} files found. Using: {matches[0].name}")
     return matches[0]
+
+
+def get_wav_duration(wav_path: Path) -> float:
+    """Return duration of a WAV file in seconds using stdlib wave module."""
+    with wave.open(str(wav_path), 'rb') as wf:
+        frames = wf.getnframes()
+        rate = wf.getframerate()
+        return frames / float(rate)
+
+
+def prepend_silence(audio_path: Path, output_path: Path, silence_secs: float) -> Path:
+    """
+    Create a new WAV file with *silence_secs* of silence prepended to the
+    original audio.  Uses ffmpeg's anullsrc to generate silence and the
+    concat filter to join them — runs almost instantly.
+
+    Reads the actual sample rate from the input file so the generated
+    silence always matches, avoiding format-mismatch artifacts.
+    """
+    sample_rate, channels = get_wav_properties(audio_path)
+
+    layout = "mono" if channels == 1 else "stereo"
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi",
+        "-i", f"anullsrc=channel_layout={layout}:sample_rate={sample_rate}",
+        "-i", str(audio_path),
+        "-filter_complex",
+        f"[0]atrim=duration={silence_secs:.3f}[s];[s][1:a]concat=n=2:v=0:a=1[out]",
+        "-map", "[out]",
+        "-c:a", "pcm_s16le",
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"ERROR: ffmpeg silence prepend failed:\n{result.stderr}")
+        sys.exit(1)
+    return output_path
 
 
 def pptx_to_images(pptx_path: Path, work_dir: Path) -> list[Path]:
@@ -74,86 +118,29 @@ def pptx_to_images(pptx_path: Path, work_dir: Path) -> list[Path]:
     return png_paths
 
 
-def get_wav_duration(wav_path: Path) -> float:
-    """Return duration of a WAV file in seconds using stdlib wave module."""
-    with wave.open(str(wav_path), 'rb') as wf:
-        frames = wf.getnframes()
-        rate = wf.getframerate()
-        return frames / float(rate)
-
-
-def prepend_silence(audio_path: Path, output_path: Path, silence_secs: float) -> Path:
-    """
-    Create a new WAV file with *silence_secs* of silence prepended to the
-    original audio.  Uses ffmpeg's anullsrc to generate silence and the
-    concat filter to join them — runs almost instantly.
-
-    Reads the actual sample rate from the input file so the generated
-    silence always matches, avoiding format-mismatch artifacts.
-    """
-    with wave.open(str(audio_path), 'rb') as wf:
-        sample_rate = wf.getframerate()
-        channels = wf.getnchannels()
-
-    layout = "mono" if channels == 1 else "stereo"
-    cmd = [
-        "ffmpeg", "-y",
-        "-f", "lavfi",
-        "-i", f"anullsrc=channel_layout={layout}:sample_rate={sample_rate}",
-        "-i", str(audio_path),
-        "-filter_complex",
-        f"[0]atrim=duration={silence_secs:.3f}[s];[s][1:a]concat=n=2:v=0:a=1[out]",
-        "-map", "[out]",
-        "-c:a", "pcm_s16le",
-        str(output_path),
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"ERROR: ffmpeg silence prepend failed:\n{result.stderr}")
-        sys.exit(1)
-    return output_path
-
-
 def encode_slide_segment(
     img_path: Path,
-    audio_path: Path,
     output_path: Path,
+    duration: float,
     fps: int = 24,
-    pre_delay: float = 0.0,
-    work_dir: Path | None = None,
 ) -> Path:
     """
-    Encode a single slide image + WAV audio into an MKV segment using ffmpeg.
-
-    Uses lossless PCM audio in intermediate segments to avoid AAC encoder
-    priming-sample artifacts at segment boundaries during concatenation.
-    AAC encoding is deferred to the final concatenation step.
-
-    When pre_delay > 0, silence is prepended to the audio file first, then
-    the segment is encoded with -shortest so ffmpeg terminates as soon as
-    the (now-longer) audio ends.
+    Encode a single slide image into a video-only MKV segment using ffmpeg.
     """
-    effective_audio = audio_path
-
-    if pre_delay > 0 and work_dir is not None:
-        delayed_audio = work_dir / f"delayed_{audio_path.name}"
-        prepend_silence(audio_path, delayed_audio, pre_delay)
-        effective_audio = delayed_audio
-
     cmd = [
         "ffmpeg", "-y",
         "-loop", "1",
         "-framerate", "1",
         "-i", str(img_path),
-        "-i", str(effective_audio),
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264",
         "-tune", "stillimage",
         "-crf", "23",
         "-preset", "fast",
         "-pix_fmt", "yuv420p",
         "-r", str(fps),
-        "-c:a", "pcm_s16le",
-        "-shortest",
+        "-t", f"{duration:.3f}",
+        "-an",
         str(output_path),
     ]
 
@@ -166,11 +153,7 @@ def encode_slide_segment(
 
 def concatenate_segments(segment_paths: list[Path], output_path: Path) -> None:
     """
-    Concatenate pre-encoded MKV segments into a single MP4 video.
-
-    Video streams are copied (no re-encoding). Audio is encoded to AAC
-    once here to avoid priming-sample artifacts that occur when
-    concatenating separately-encoded AAC streams with stream copy.
+    Concatenate pre-encoded MKV segments into a single video-only MP4.
     """
     concat_list = segment_paths[0].parent / "concat_list.txt"
     with open(concat_list, "w") as f:
@@ -183,13 +166,48 @@ def concatenate_segments(segment_paths: list[Path], output_path: Path) -> None:
         "-safe", "0",
         "-i", str(concat_list),
         "-c:v", "copy",
-        "-c:a", "aac",
-        "-b:a", "192k",
+        "-an",
         str(output_path),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"ERROR: ffmpeg concat failed:\n{result.stderr}")
+        sys.exit(1)
+
+
+def concatenate_wav_files(audio_paths: list[Path], output_path: Path, pre_delay: float) -> None:
+    """
+    Concatenate WAV files into a single WAV file.
+    """
+    with wave.open(str(output_path), 'wb') as wf:
+        for i, audio_path in enumerate(audio_paths):
+            with wave.open(str(audio_path), 'rb') as af:
+                if i == 0:
+                    wf.setnchannels(af.getnchannels())
+                    wf.setsampwidth(af.getsampwidth())
+                    wf.setframerate(af.getframerate())
+                wf.writeframes(af.readframes(af.getnframes()))
+
+            if i < len(audio_paths) - 1:
+                silence_frames = int(pre_delay * wf.getframerate())
+                wf.writeframes(b'\x00' * silence_frames * wf.getnchannels() * wf.getsampwidth())
+
+
+def mux_video_and_audio(video_path: Path, audio_path: Path, output_path: Path, audio_codec: str) -> None:
+    """
+    Mux video and audio into a single MP4 file.
+    """
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(video_path),
+        "-i", str(audio_path),
+        "-c:v", "copy",
+        "-c:a", audio_codec,
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"ERROR: ffmpeg mux failed:\n{result.stderr}")
         sys.exit(1)
 
 
@@ -202,6 +220,8 @@ def main():
     parser.add_argument("--output-dir", default=None, help="Directory for the output MP4 (default: <input-dir>/Output)")
     parser.add_argument("--fps", type=int, default=24, help="Video frame rate (default: 24)")
     parser.add_argument("--pre-delay", type=float, default=1.5, help="Seconds of silence before narration starts on each slide (default: 1.5)")
+    parser.add_argument("--audio-codec", choices=["alac", "aac"], default="aac", help="Final MP4 audio codec (default: aac)")
+    parser.add_argument("--no-save-merged-audio", action="store_true", help="Do not save merged_audio.wav beside the final MP4")
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir).resolve()
@@ -237,8 +257,14 @@ def main():
     print(f"Output path:  {output_path}")
     print(f"Pre-delay:    {pre_delay:.1f}s\n")
 
+    source_sample_rate = None
+    source_channels = None
+    ordered_audio_paths = []
+
     with tempfile.TemporaryDirectory() as tmp:
         work_dir = Path(tmp)
+        video_only_path = work_dir / "video_only.mp4"
+        merged_audio_path = work_dir / "merged_audio.wav"
 
         # Step 1: PPTX -> PNG images
         slide_images = pptx_to_images(pptx_file, work_dir)
@@ -255,26 +281,38 @@ def main():
                 print(f"  WARNING: Audio not found for Slide {i} ({audio_path.name}). Skipping slide.")
                 continue
 
+            if source_sample_rate is None or source_channels is None:
+                source_sample_rate, source_channels = get_wav_properties(audio_path)
+
             duration = get_wav_duration(audio_path)
             total_seg = duration + pre_delay
             print(f"  Slide {i:02d}/{total}: {img_path.name} + {audio_path.name} ({duration:.1f}s audio, {total_seg:.1f}s total)")
 
             segment_path = work_dir / f"segment_{i:02d}.mkv"
             encode_slide_segment(
-                img_path, audio_path, segment_path,
+                img_path, segment_path, total_seg,
                 fps=args.fps,
-                pre_delay=pre_delay,
-                work_dir=work_dir,
             )
             segment_paths.append(segment_path)
+            ordered_audio_paths.append(audio_path)
 
         if not segment_paths:
             print("ERROR: No segments were created. Check that audio files exist in Audios/.")
             sys.exit(1)
 
         # Step 3: Concatenate segments (video copy, audio encoded to AAC)
-        print(f"\nConcatenating {len(segment_paths)} segment(s) into final video...")
-        concatenate_segments(segment_paths, output_path)
+        print(f"\nConcatenating {len(segment_paths)} segment(s) into final video stream...")
+        concatenate_segments(segment_paths, video_only_path)
+
+        print("Creating merged WAV track...")
+        concatenate_wav_files(ordered_audio_paths, merged_audio_path, pre_delay)
+
+        if not args.no_save_merged_audio:
+            saved_merged_audio_path = output_path.with_name("merged_audio.wav")
+            saved_merged_audio_path.write_bytes(merged_audio_path.read_bytes())
+
+        print(f"Muxing video with {args.audio_codec} audio...")
+        mux_video_and_audio(video_only_path, merged_audio_path, output_path, args.audio_codec)
 
         print(f"\nDone. Video saved to: {output_path}")
 

@@ -8,13 +8,15 @@ Formatting Rules:
 
 -  Pause Logic: Every slide title must be a header (##) and end with the exact sequence: . ... ... (e.g., ## Slide Title. ... ...). This is required to force a natural 2-second pause before the body text starts.
 
-- Header Information: Start the file with a standardized header including the Project Title, the Presenting Team, and a "For use with Kokoro TTS" label.
+-  Slide Title: Every slide must have a slide title with the following format: "Slide " + Slide Number followed by em dash. Example: Slide 1 — Safe AI Usage. ... ...
 
-- TTS Guidance Notes: Include a blockquote section at the top with instructions to read numbers in full (e.g., "nineteen percent"), expand abbreviations, and pause at em-dashes.
+-  Header Information: Start the file with a standardized header including the Project Title, the Presenting Team, and a "For use with Kokoro TTS" label.
 
-- Spoken Delivery: Rewrite slide text into natural, professional speech. Do not read slide numbers, bullet point symbols, or technical labels aloud.
+-  TTS Guidance Notes: Include a blockquote section at the top with instructions to read numbers in full (e.g., "nineteen percent"), expand abbreviations, and pause at em-dashes.
 
-- Number Expansion: Explicitly write out all numbers and currencies (e.g., change "$5.08M" to "five-point-zero-eight million dollars").
+-  Spoken Delivery: Rewrite slide text into natural, professional speech. Do not read slide numbers, bullet point symbols, or technical labels aloud.
+
+-  Number Expansion: Explicitly write out all numbers and currencies (e.g., change "$5.08M" to "five-point-zero-eight million dollars").
 
 Content Alignment:
 
