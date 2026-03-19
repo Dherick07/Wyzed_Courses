@@ -1,0 +1,27 @@
+Role: You are an expert AI Scriptwriter specializing in Text-to-Speech (TTS) optimization for professional corporate presentations.
+
+Task: Convert the attached PowerPoint presentation into a Markdown narration script file specifically formatted for Kokoro TTS.
+
+Output: A downloadable Markdown narration script file. 
+
+Formatting Rules:
+
+-  Pause Logic: Every slide title must be a header (##) and end with the exact sequence: . ... ... (e.g., ## Slide Title. ... ...). This is required to force a natural 2-second pause before the body text starts.
+
+- Header Information: Start the file with a standardized header including the Project Title, the Presenting Team, and a "For use with Kokoro TTS" label.
+
+- TTS Guidance Notes: Include a blockquote section at the top with instructions to read numbers in full (e.g., "nineteen percent"), expand abbreviations, and pause at em-dashes.
+
+- Spoken Delivery: Rewrite slide text into natural, professional speech. Do not read slide numbers, bullet point symbols, or technical labels aloud.
+
+- Number Expansion: Explicitly write out all numbers and currencies (e.g., change "$5.08M" to "five-point-zero-eight million dollars").
+
+Content Alignment:
+
+- The narration for each slide must strictly match the data, statistics, and themes presented on that specific slide.
+
+- If a slide contains a case study (like the Samsung or Deloitte examples), ensure the narration tells that story clearly.
+
+- Maintain the "Safe vs Unsafe" examples and practical action plans as written in the visual content.
+
+- Output Style: Use Markdown. Use --- as horizontal rules to separate slides.

@@ -87,11 +87,19 @@ def prepend_silence(audio_path: Path, output_path: Path, silence_secs: float) ->
     Create a new WAV file with *silence_secs* of silence prepended to the
     original audio.  Uses ffmpeg's anullsrc to generate silence and the
     concat filter to join them — runs almost instantly.
+
+    Reads the actual sample rate from the input file so the generated
+    silence always matches, avoiding format-mismatch artifacts.
     """
+    with wave.open(str(audio_path), 'rb') as wf:
+        sample_rate = wf.getframerate()
+        channels = wf.getnchannels()
+
+    layout = "mono" if channels == 1 else "stereo"
     cmd = [
         "ffmpeg", "-y",
         "-f", "lavfi",
-        "-i", f"anullsrc=channel_layout=mono:sample_rate=24000",
+        "-i", f"anullsrc=channel_layout={layout}:sample_rate={sample_rate}",
         "-i", str(audio_path),
         "-filter_complex",
         f"[0]atrim=duration={silence_secs:.3f}[s];[s][1:a]concat=n=2:v=0:a=1[out]",
@@ -115,12 +123,15 @@ def encode_slide_segment(
     work_dir: Path | None = None,
 ) -> Path:
     """
-    Encode a single slide image + WAV audio into an MP4 segment using ffmpeg.
+    Encode a single slide image + WAV audio into an MKV segment using ffmpeg.
+
+    Uses lossless PCM audio in intermediate segments to avoid AAC encoder
+    priming-sample artifacts at segment boundaries during concatenation.
+    AAC encoding is deferred to the final concatenation step.
 
     When pre_delay > 0, silence is prepended to the audio file first, then
     the segment is encoded with -shortest so ffmpeg terminates as soon as
-    the (now-longer) audio ends.  This keeps encoding fast by avoiding the
-    adelay audio filter during video encoding.
+    the (now-longer) audio ends.
     """
     effective_audio = audio_path
 
@@ -141,7 +152,7 @@ def encode_slide_segment(
         "-preset", "fast",
         "-pix_fmt", "yuv420p",
         "-r", str(fps),
-        "-c:a", "aac",
+        "-c:a", "pcm_s16le",
         "-shortest",
         str(output_path),
     ]
@@ -155,8 +166,11 @@ def encode_slide_segment(
 
 def concatenate_segments(segment_paths: list[Path], output_path: Path) -> None:
     """
-    Concatenate pre-encoded MP4 segments into a single video using the
-    ffmpeg concat demuxer with stream copy (no re-encoding).
+    Concatenate pre-encoded MKV segments into a single MP4 video.
+
+    Video streams are copied (no re-encoding). Audio is encoded to AAC
+    once here to avoid priming-sample artifacts that occur when
+    concatenating separately-encoded AAC streams with stream copy.
     """
     concat_list = segment_paths[0].parent / "concat_list.txt"
     with open(concat_list, "w") as f:
@@ -168,7 +182,9 @@ def concatenate_segments(segment_paths: list[Path], output_path: Path) -> None:
         "-f", "concat",
         "-safe", "0",
         "-i", str(concat_list),
-        "-c", "copy",
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "192k",
         str(output_path),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -243,7 +259,7 @@ def main():
             total_seg = duration + pre_delay
             print(f"  Slide {i:02d}/{total}: {img_path.name} + {audio_path.name} ({duration:.1f}s audio, {total_seg:.1f}s total)")
 
-            segment_path = work_dir / f"segment_{i:02d}.mp4"
+            segment_path = work_dir / f"segment_{i:02d}.mkv"
             encode_slide_segment(
                 img_path, audio_path, segment_path,
                 fps=args.fps,
@@ -256,7 +272,7 @@ def main():
             print("ERROR: No segments were created. Check that audio files exist in Audios/.")
             sys.exit(1)
 
-        # Step 3: Concatenate segments (stream copy — no re-encoding)
+        # Step 3: Concatenate segments (video copy, audio encoded to AAC)
         print(f"\nConcatenating {len(segment_paths)} segment(s) into final video...")
         concatenate_segments(segment_paths, output_path)
 
